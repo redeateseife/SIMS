@@ -1,13 +1,10 @@
-# APP
+# SIMS
 
 ## Description
-An application for inventory management.
+Inventory management app built with Python and Streamlit. Features CRUD workflows, idle-stock analysis, and a modular service-layer architecture backed by CSV storage.
 
 ## Author
-Redeate Seife | 2026-05-29
-
-## Features
-- TBA
+Redeate Seife
 
 ## Requirements
 - Python 3+
@@ -15,7 +12,7 @@ Redeate Seife | 2026-05-29
 
 ## Project Structure
 ```
-red/                            
+SIMS/                            
     app.py                      # Entry point
     config.py                   # Configuration
     README.md                   # Documentation
