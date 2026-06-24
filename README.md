@@ -74,11 +74,9 @@ SIMS is built with a modular service-layer architecture that separates concerns 
 - Charts and dashboards for inventory trends
 
 ## Demo
-#### Windows
-![SIMS - Windows](images/sims-windows.png)
-
-#### Linux
-![SIMS - Linux](images/sims-linux.png)
+| Inventory | Idle Stock | CRUD |
+| :---: | :---: | :---: |
+| ![SIMS - Inventory](images/sims-inventory.png) | ![SIMS - Idle Stock](images/sims-idle-stock.png) | ![SIMS - CRUD](images/sims-crud.png) |
 
 
 
