@@ -4,16 +4,11 @@
 # app.py is intentionally thin: it owns page config, session state, the sidebar,
 # and tab layout — nothing else.  All rendering logic lives in ui/components.py.
 
-import sys
-sys.dont_write_bytecode = True
-
 import streamlit as st
 
 from services.inventory_service import Inventory
 from utils.system_utils import shutdown_server
-from ui.theme import apply_theme
 from ui.components import (
-    page_title,
     shutdown_screen,
     render_view_tab,
     render_edit_tab,
@@ -23,7 +18,11 @@ from ui.components import (
 # =============================================================================
 # PAGE CONFIG  (must be the first Streamlit call)
 # =============================================================================
-apply_theme()
+st.set_page_config(
+    page_title="SIMS",
+    page_icon="📦",
+    layout="wide"
+)
 
 # =============================================================================
 # SESSION STATE
@@ -38,7 +37,8 @@ inventory: Inventory = st.session_state.inventory
 # =============================================================================
 # PAGE TITLE
 # =============================================================================
-page_title("AVENDORS", subtitle="Smart Inventory Management System")
+st.title("📦 SIMS")
+st.caption("Smart Inventory Management System")
 
 # =============================================================================
 # SIDEBAR

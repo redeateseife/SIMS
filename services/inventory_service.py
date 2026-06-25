@@ -1,23 +1,45 @@
 # services/inventory_service.py
 #
 # The Inventory class owns the DataFrame and exposes all mutation/query methods.
-# This replaces the previous pattern of passing `df` into every free function.
 # Consumers hold one Inventory instance (stored in st.session_state) and call
 # methods on it — no raw pandas leaks into the UI layer.
 
 from __future__ import annotations
-
 import pandas as pd
-
+from datetime import date
 from config import CSV_FILE
 
-COLUMNS = ["ID", "ITEM", "QUANTITY", "RETAIL", "SALE", "LOCATION"]
+COLUMNS = [
+    "ID", "ITEM", "CATEGORY", "QUANTITY",
+    "COST", "PRICE", "LOCATION",
+    "LAST_UPDATED", "LAST_SOLD"
+]
+
+IDLE_THRESHOLD_DAYS = 30
 
 
 def _format_price(price: str | float) -> str:
     """Ensure a price string is prefixed with '$'."""
     price = str(price).strip()
     return price if price.startswith("$") else f"${price}"
+
+
+def _derive_status(quantity: int) -> str:
+    """
+    Derive STATUS from quantity alone.
+
+    NO STOCK  — quantity is 0 (row is retained for visibility; not dropped).
+    LOW STOCK — quantity is 1–5.
+    IN STOCK  — quantity is 6+.
+
+    Note: "IDLE" is NOT derived from quantity. Idle detection is time-based and
+    lives in idle_inventory(). STATUS and idle analysis are intentionally separate.
+    """
+    if quantity <= 0:
+        return "NO STOCK"
+    if quantity <= 5:
+        return "LOW STOCK"
+    return "IN STOCK"
 
 
 class Inventory:
@@ -34,9 +56,25 @@ class Inventory:
         try:
             df = pd.read_csv(CSV_FILE)
             df.columns = df.columns.str.strip()
+
+            # Drop STATUS if it exists in the CSV — always derived at runtime
+            if "STATUS" in df.columns:
+                df = df.drop(columns=["STATUS"])
+
+            # Ensure LAST_SOLD column exists for older CSV files
+            if "LAST_SOLD" not in df.columns:
+                df["LAST_SOLD"] = pd.NaT
+
+            # Parse date columns
+            df["LAST_UPDATED"] = pd.to_datetime(df["LAST_UPDATED"], errors="coerce")
+            df["LAST_SOLD"]    = pd.to_datetime(df["LAST_SOLD"],    errors="coerce")
+
+            # Derive STATUS from QUANTITY at load time
+            df["STATUS"] = df["QUANTITY"].apply(_derive_status)
+
             return df
         except (pd.errors.EmptyDataError, pd.errors.ParserError, FileNotFoundError):
-            return pd.DataFrame(columns=COLUMNS)
+            return pd.DataFrame(columns=COLUMNS + ["STATUS"])
 
     @property
     def df(self) -> pd.DataFrame:
@@ -48,10 +86,15 @@ class Inventory:
     # ------------------------------------------------------------------
 
     def filtered(self, location: str) -> pd.DataFrame:
-        """Return rows for *location*, or all rows when location == 'ALL'."""
+        """Return rows for *location*, or all rows when location == 'ALL'.
+        Appends derived PROFIT and MARGIN columns at display time."""
         if location == "ALL":
-            return self._df
-        return self._df[self._df["LOCATION"] == location]
+            df = self._df.copy()
+        else:
+            df = self._df[self._df["LOCATION"] == location].copy()
+
+        df = self._append_derived(df)
+        return df
 
     def locations(self) -> list[str]:
         """Sorted list of unique location codes present in the data."""
@@ -62,30 +105,53 @@ class Inventory:
         df = self._df
         return df["ITEM"] + " (" + df["LOCATION"] + " - ID: " + df["ID"].astype(str) + ")"
 
-    def idle_inventory(self) -> pd.DataFrame:
+    def idle_inventory(self, days: int = IDLE_THRESHOLD_DAYS) -> pd.DataFrame:
         """
-        Items that exist in more than one location.
-        Non-hub rows are flagged; the hub is whichever location has the most stock.
+        Items with stock remaining but no recorded sale in the last X days.
+        Requires LAST_SOLD to be populated; rows with null LAST_SOLD are excluded.
         """
-        item_counts = self._df.groupby("ITEM")["LOCATION"].nunique()
-        multi_location_items = item_counts[item_counts > 1].index
-        rows: list[dict] = []
+        cutoff = pd.Timestamp.today() - pd.Timedelta(days=days)
 
-        for item in multi_location_items:
-            item_df = self._df[self._df["ITEM"] == item]
-            hub = item_df.loc[item_df["QUANTITY"].idxmax()]
+        mask = (
+            (self._df["QUANTITY"] > 0) &
+            (self._df["LAST_SOLD"].notna()) &
+            (self._df["LAST_SOLD"] < cutoff)
+        )
 
-            non_hub = item_df[item_df["LOCATION"] != hub["LOCATION"]]
-            for _, row in non_hub.iterrows():
-                rows.append({
-                    "Item Name":        item,
-                    "Current Location": row["LOCATION"],
-                    "Current Stock":    row["QUANTITY"],
-                    "Target Hub":       hub["LOCATION"],
-                    "Hub Stock":        hub["QUANTITY"],
-                })
+        idle_df = self._df[mask].copy()
+        idle_df["DAYS_SINCE_SOLD"] = (
+            pd.Timestamp.today() - idle_df["LAST_SOLD"]
+        ).dt.days
 
-        return pd.DataFrame(rows)
+        return idle_df[[
+            "ID", "ITEM", "CATEGORY", "QUANTITY",
+            "LOCATION", "LAST_SOLD", "DAYS_SINCE_SOLD"
+        ]].reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # Derived columns (never stored in CSV)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _append_derived(df: pd.DataFrame) -> pd.DataFrame:
+        """Append PROFIT and MARGIN columns derived from COST and PRICE."""
+        def parse_price(series: pd.Series) -> pd.Series:
+            return pd.to_numeric(
+                series.astype(str).str.replace("$", "", regex=False),
+                errors="coerce"
+            )
+
+        cost  = parse_price(df["COST"])
+        price = parse_price(df["PRICE"])
+
+        df["PROFIT"] = (price - cost).round(2).apply(lambda x: f"${x:.2f}")
+        df["MARGIN"] = (
+            ((price - cost) / price * 100)
+            .round(1)
+            .apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
+        )
+
+        return df
 
     # ------------------------------------------------------------------
     # Mutations
@@ -93,20 +159,22 @@ class Inventory:
 
     def add_or_edit(
         self,
-        item_id: int,
-        item: str,
+        item_id:  int,
+        item:     str,
+        category: str,
         quantity: int,
-        retail: str,
-        sale: str,
+        cost:     str,
+        price:    str,
         location: str,
     ) -> None:
         """
-        Add a new row or increment quantity on an existing (id, location) pair.
+        Add a new row or update an existing (id, location) pair.
 
         Raises ValueError if *item_id* is already mapped to a different item name.
         """
-        retail = _format_price(retail)
-        sale   = _format_price(sale)
+        cost  = _format_price(cost)
+        price = _format_price(price)
+        today = str(date.today())
 
         id_mask = self._df["ID"] == item_id
         if id_mask.any():
@@ -116,17 +184,43 @@ class Inventory:
 
         loc_mask = id_mask & (self._df["LOCATION"] == location)
         if loc_mask.any():
-            self._df.loc[loc_mask, "QUANTITY"]        += quantity
-            self._df.loc[loc_mask, ["RETAIL", "SALE"]] = [retail, sale]
+            self._df.loc[loc_mask, "QUANTITY"]    += quantity
+            self._df.loc[loc_mask, "COST"]         = cost
+            self._df.loc[loc_mask, "PRICE"]        = price
+            self._df.loc[loc_mask, "LAST_UPDATED"] = today
         else:
             new_row = pd.DataFrame([{
-                "ID": item_id, "ITEM": item, "QUANTITY": quantity,
-                "RETAIL": retail, "SALE": sale, "LOCATION": location,
+                "ID":           item_id,
+                "ITEM":         item,
+                "CATEGORY":     category,
+                "QUANTITY":     quantity,
+                "COST":         cost,
+                "PRICE":        price,
+                "LOCATION":     location,
+                "LAST_UPDATED": today,
+                "LAST_SOLD":    pd.NaT,
             }])
             self._df = pd.concat([self._df, new_row], ignore_index=True)
 
+        # Recompute STATUS after any quantity change
+        self._df["STATUS"] = self._df["QUANTITY"].apply(_derive_status)
+
+    def record_sale(self, item_id: int, location: str, quantity: int) -> None:
+        """
+        Deduct *quantity* from (item_id, location), update LAST_SOLD,
+        and recompute STATUS. Rows that reach zero are marked NO STOCK
+        and retained — they are not dropped.
+        """
+        today = str(date.today())
+        mask  = (self._df["ID"] == item_id) & (self._df["LOCATION"] == location)
+
+        self._df.loc[mask, "QUANTITY"]     -= quantity
+        self._df.loc[mask, "LAST_SOLD"]    = today
+        self._df.loc[mask, "LAST_UPDATED"] = today
+
+        # Recompute STATUS across entire DataFrame after quantity change
+        self._df["STATUS"] = self._df["QUANTITY"].apply(_derive_status)
+
     def remove(self, item_id: int, location: str, quantity: int) -> None:
-        """Deduct *quantity* from (item_id, location) and drop rows that hit zero."""
-        mask = (self._df["ID"] == item_id) & (self._df["LOCATION"] == location)
-        self._df.loc[mask, "QUANTITY"] -= quantity
-        self._df = self._df[self._df["QUANTITY"] > 0].reset_index(drop=True)
+        """Deduct *quantity* from (item_id, location)."""
+        self.record_sale(item_id, location, quantity)

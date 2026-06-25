@@ -3,12 +3,21 @@
 # The shutdown *screen* (visual) lives in ui/components.py so it inherits
 # the design tokens from ui/theme.py automatically.
 
-from os     import getpid, kill
+import os
+import sys
 from signal import SIGTERM
 from time   import sleep
 
 
 def shutdown_server(delay: int = 1) -> None:
-    """Wait *delay* seconds then send SIGTERM to the current process."""
+    """
+    Wait *delay* seconds then terminate the current process.
+
+    Sends SIGTERM on Linux/macOS. Falls back to sys.exit(0) on Windows,
+    where SIGTERM is not supported and raises OSError.
+    """
     sleep(delay)
-    kill(getpid(), SIGTERM)
+    try:
+        os.kill(os.getpid(), SIGTERM)
+    except (OSError, AttributeError):
+        sys.exit(0)

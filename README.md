@@ -7,12 +7,14 @@ SIMS is an inventory management application built with Python and Streamlit. Fea
 Redeate Seife
 
 ## Features
-- Add, edit, and delete inventory items
-- Idle-stock analysis to flag underperforming inventory
-- Automatic data backups
+- Add, edit, and deduct inventory items across multiple locations
+- Status tracking per item: **IN STOCK**, **LOW STOCK**, and **NO STOCK** — derived at runtime, never stored
+- Runtime-derived **PROFIT** and **MARGIN** columns calculated from COST and PRICE at display time
+- Idle-stock analysis: flags items with remaining quantity but no recorded sale in the past 30 days
+- Automatic timestamped data backups on every save
 - Modular service-layer architecture separating UI from business logic
 - Persistent CSV-based data storage
-- Configurable theme and design tokens
+- Configurable dark theme via `.streamlit/config.toml`
 
 ## Requirements
 - Python 3.8+
@@ -37,31 +39,30 @@ SIMS/
     app.py                      Application entry point
     config.py                   App-wide configuration constants
     README.md                   Project documentation
-
+ 
     .streamlit/
         config.toml             Streamlit server and theme settings
-
+ 
     data/
-        backups/                Auto-generated inventory backups
+        backups/                Auto-generated timestamped inventory backups
         inventory.csv           Primary inventory data store
-
+ 
     services/
         backup_service.py       Handles automatic data backup logic
-        inventory_service.py    Core inventory CRUD operations
-
+        inventory_service.py    Core inventory CRUD operations and queries
+ 
     ui/
-        components.py           Primitives (badges, headers) and tab renderers
-        theme.py                Design tokens, apply_theme(), stock status helpers
-
+        components.py           Tab renderers, metrics, and status styling
+ 
     utils/
         system_utils.py         OS-level lifecycle utilities (shutdown_server())
 ```
 
 ## Implementation Details
-SIMS is built with a modular service-layer architecture that separates concerns across three layers. The UI layer (`ui/`) handles all rendering and user interaction. The service layer (`services/`) contains business logic for inventory operations and backup management, keeping it independent from the UI. The data layer persists state to `inventory.csv`, with automatic backups written to `data/backups/`.
-
-`app.py` serves as the entry point, initializing the Streamlit app, applying the theme via `theme.py`, and routing between tabs. `config.py` centralizes app-wide constants so configuration changes don't require touching business logic or UI files.
-
+SIMS is built with a modular service-layer architecture that separates concerns across three layers. The UI layer (`ui/`) handles all rendering and user interaction. The service layer (`services/`) contains business logic for inventory operations and backup management, keeping it fully independent from the UI. The data layer persists state to `inventory.csv`, with automatic timestamped backups written to `data/backups/` on every save.
+ 
+`app.py` serves as the entry point, initializing the Streamlit app and routing between tabs. `config.py` centralizes app-wide path constants so configuration changes don't require touching business logic or UI files. Derived fields — STATUS, PROFIT, and MARGIN — are computed at runtime and never written to the CSV, keeping stored data clean.
+ 
 ## Additional Information
 - Tested on Windows 11 and Linux
 
