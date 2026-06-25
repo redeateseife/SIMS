@@ -6,8 +6,7 @@ gatherUsageStats = false    # Disables telemetry
 
 [theme]
 base = "dark"
-primaryColor = "#8B5CF6"   # color-brand
-backgroundColor = "#0B1220"   # bg-main
-secondaryBackgroundColor = "#111A2E" # bg-sidebar
-textColor = "#E6EDF7"   # text-primary
+backgroundColor = "#0B1220"    # bg-main
+secondaryBackgroundColor = "#111A2E"    # bg-sidebar
+textColor = "#E6EDF7"    # text-primary
 font = "monospace"
