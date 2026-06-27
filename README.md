@@ -8,7 +8,7 @@ Redeate Seife
 
 ## Features
 - Add, edit, and deduct inventory items across multiple locations
-- Status tracking per item: **IN STOCK**, **LOW STOCK**, and **NO STOCK** — derived at runtime, never stored
+- Status tracking per item: **IN STOCK**, **LOW STOCK**, and **NO STOCK** - derived at runtime, never stored
 - Runtime-derived **PROFIT** and **MARGIN** columns calculated from COST and PRICE at display time
 - Idle-stock analysis: flags items with remaining quantity but no recorded sale in the past 30 days
 - Automatic timestamped data backups on every save
@@ -61,7 +61,7 @@ SIMS/
 ## Implementation Details
 SIMS is built with a modular service-layer architecture that separates concerns across three layers. The UI layer (`ui/`) handles all rendering and user interaction. The service layer (`services/`) contains business logic for inventory operations and backup management, keeping it fully independent from the UI. The data layer persists state to `inventory.csv`, with automatic timestamped backups written to `data/backups/` on every save.
  
-`app.py` serves as the entry point, initializing the Streamlit app and routing between tabs. `config.py` centralizes app-wide path constants so configuration changes don't require touching business logic or UI files. Derived fields — STATUS, PROFIT, and MARGIN — are computed at runtime and never written to the CSV, keeping stored data clean.
+`app.py` serves as the entry point, initializing the Streamlit app and routing between tabs. `config.py` centralizes app-wide path constants so configuration changes don't require touching business logic or UI files. Derived fields (STATUS, PROFIT, and MARGIN) are computed at runtime and never written to the CSV, keeping stored data clean.
  
 ## Additional Information
 - Tested on Windows 11 and Linux
