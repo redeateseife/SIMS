@@ -1,8 +1,8 @@
-# app.py — SIMS  (Smart Inventory Management System)
+# app.py — SIMS (Smart Inventory Management System)
 # SINCE 2026-05-29
 
 # app.py is intentionally thin: it owns page config, session state, the sidebar,
-# and tab layout — nothing else.  All rendering logic lives in ui/components.py.
+# and tab layout only. Rendering logic lives in ui/components.py.
 
 import streamlit as st
 
@@ -16,7 +16,7 @@ from ui.components import (
 )
 
 # =============================================================================
-# PAGE CONFIG  (must be the first Streamlit call)
+# PAGE CONFIG 
 # =============================================================================
 st.set_page_config(
     page_title="SIMS",
@@ -26,8 +26,8 @@ st.set_page_config(
 
 # =============================================================================
 # SESSION STATE
-# Storing Inventory in session_state means the CSV is read once per browser
-# session rather than on every widget interaction.
+# Storing Inventory in session_state so CSV is read once per browser
+# session rather than on every widget interaction
 # =============================================================================
 if "inventory" not in st.session_state:
     st.session_state.inventory = Inventory()
