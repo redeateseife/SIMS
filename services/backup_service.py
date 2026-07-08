@@ -1,17 +1,11 @@
 # services/backup_service.py
 
 from datetime import datetime
-
 from config import BACKUP_DIR, CSV_FILE
 from services.inventory_service import Inventory
 
-
 def save_and_backup(inventory: Inventory) -> str:
-    """
-    Persist *inventory* to the primary CSV and write a timestamped backup copy.
-
-    Returns the backup filename (not the full path) for display in the UI.
-    """
+    
     inventory.df.to_csv(CSV_FILE, index=False)
 
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
