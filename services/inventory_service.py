@@ -1,8 +1,4 @@
 # services/inventory_service.py
-#
-# The Inventory class owns the DataFrame and exposes all mutation/query methods.
-# Consumers hold one Inventory instance (stored in st.session_state) and call
-# methods on it — no raw pandas leaks into the UI layer.
 
 from __future__ import annotations
 import pandas as pd
@@ -19,22 +15,11 @@ IDLE_THRESHOLD_DAYS = 30
 
 
 def _format_price(price: str | float) -> str:
-    """Ensure a price string is prefixed with '$'."""
     price = str(price).strip()
     return price if price.startswith("$") else f"${price}"
 
 
 def _derive_status(quantity: int) -> str:
-    """
-    Derive STATUS from quantity alone.
-
-    NO STOCK  — quantity is 0 (row is retained for visibility; not dropped).
-    LOW STOCK — quantity is 1–5.
-    IN STOCK  — quantity is 6+.
-
-    Note: "IDLE" is NOT derived from quantity. Idle detection is time-based and
-    lives in idle_inventory(). STATUS and idle analysis are intentionally separate.
-    """
     if quantity <= 0:
         return "NO STOCK"
     if quantity <= 5:
@@ -43,8 +28,7 @@ def _derive_status(quantity: int) -> str:
 
 
 class Inventory:
-    """Encapsulates the inventory DataFrame and all operations on it."""
-
+    
     # ------------------------------------------------------------------
     # Construction / persistence
     # ------------------------------------------------------------------
@@ -78,7 +62,7 @@ class Inventory:
 
     @property
     def df(self) -> pd.DataFrame:
-        """Read-only access to the underlying DataFrame."""
+        # Read-only access to the underlying DataFrame
         return self._df
 
     # ------------------------------------------------------------------
@@ -86,8 +70,8 @@ class Inventory:
     # ------------------------------------------------------------------
 
     def filtered(self, location: str) -> pd.DataFrame:
-        """Return rows for *location*, or all rows when location == 'ALL'.
-        Appends derived PROFIT and MARGIN columns at display time."""
+        # Return rows for *location*, or all rows when location == 'ALL'
+        # Appends derived PROFIT and MARGIN columns at display time
         if location == "ALL":
             df = self._df.copy()
         else:
@@ -97,19 +81,17 @@ class Inventory:
         return df
 
     def locations(self) -> list[str]:
-        """Sorted list of unique location codes present in the data."""
+        # Sorted list of unique location codes present in the data
         return sorted(self._df["LOCATION"].dropna().unique())
 
     def selector_labels(self) -> pd.Series:
-        """Human-readable labels for the item selector widget."""
+        # Human-readable labels for the item selector widget
         df = self._df
         return df["ITEM"] + " (" + df["LOCATION"] + " - ID: " + df["ID"].astype(str) + ")"
 
-    def idle_inventory(self, days: int = IDLE_THRESHOLD_DAYS) -> pd.DataFrame:
-        """
-        Items with stock remaining but no recorded sale in the last X days.
-        Requires LAST_SOLD to be populated; rows with null LAST_SOLD are excluded.
-        """
+    def idle_inventory(self, days: int = IDLE_THRESHOLD_DAYS) -> pd.DataFrame:    
+        # Items with stock remaining but no recorded sale in the last X days
+        # Requires LAST_SOLD to be populated; rows with null LAST_SOLD are excluded
         cutoff = pd.Timestamp.today() - pd.Timedelta(days=days)
 
         mask = (
@@ -134,7 +116,7 @@ class Inventory:
 
     @staticmethod
     def _append_derived(df: pd.DataFrame) -> pd.DataFrame:
-        """Append PROFIT and MARGIN columns derived from COST and PRICE."""
+        # Append PROFIT and MARGIN columns, derived from COST and PRICE
         def parse_price(series: pd.Series) -> pd.Series:
             return pd.to_numeric(
                 series.astype(str).str.replace("$", "", regex=False),
@@ -167,11 +149,9 @@ class Inventory:
         price:    str,
         location: str,
     ) -> None:
-        """
-        Add a new row or update an existing (id, location) pair.
-
-        Raises ValueError if *item_id* is already mapped to a different item name.
-        """
+        # Add new row or update existing (id, location) pair.
+        # ValueError if *item_id* is already mapped
+        
         cost  = _format_price(cost)
         price = _format_price(price)
         today = str(date.today())
@@ -206,11 +186,10 @@ class Inventory:
         self._df["STATUS"] = self._df["QUANTITY"].apply(_derive_status)
 
     def record_sale(self, item_id: int, location: str, quantity: int) -> None:
-        """
-        Deduct *quantity* from (item_id, location), update LAST_SOLD,
-        and recompute STATUS. Rows that reach zero are marked NO STOCK
-        and retained — they are not dropped.
-        """
+        # Deduct *quantity* from (item_id, location), update LAST_SOLD, 
+        # and recompute STATUS. Rows that reach zero are marked NO STOCK 
+        # and retained, not dropped
+        
         today = str(date.today())
         mask  = (self._df["ID"] == item_id) & (self._df["LOCATION"] == location)
 
@@ -222,5 +201,5 @@ class Inventory:
         self._df["STATUS"] = self._df["QUANTITY"].apply(_derive_status)
 
     def remove(self, item_id: int, location: str, quantity: int) -> None:
-        """Deduct *quantity* from (item_id, location)."""
+        # Deduct *quantity* from (item_id, location)
         self.record_sale(item_id, location, quantity)
