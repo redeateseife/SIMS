@@ -2,7 +2,7 @@
 import streamlit as st
 
 # ==============================================================================
-# 🎨 SEMANTIC THEME TOKENS
+# THEME TOKENS
 # ==============================================================================
 TOKENS = {
     # Layout Backgrounds
@@ -28,7 +28,7 @@ TOKENS = {
     "color-info":          "#3B82F6",   # Blue  — System info
 }
 
-# Sizing Matrix (Handles differentiation without dedicated color tokens)
+# Font Sizing
 SIZES = {
     "font-title":    "48px",
     "font-subtitle": "24px",
