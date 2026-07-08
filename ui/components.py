@@ -1,7 +1,5 @@
 # ui/components.py
-#
-# Renders UI elements using native Streamlit components only.
-# No HTML, no CSS, no custom theming.
+# Renders UI elements using native Streamlit components
 
 import streamlit as st
 
@@ -14,12 +12,6 @@ from services.backup_service import save_and_backup
 # ==============================================================================
 
 def _style_status(val: str) -> str:
-    """
-    Map STATUS values to inline CSS.
-
-    STATUS is derived from QUANTITY at runtime (see inventory_service._derive_status).
-    Possible values: IN STOCK, LOW STOCK, NO STOCK.
-    """
     colors = {
         "IN STOCK":  "background-color: #22C55E; color: black;",    # Soft green
         "LOW STOCK": "background-color: #FDE047; color: black;",    # Soft yellow
@@ -62,7 +54,7 @@ def shutdown_screen() -> None:
 # ==============================================================================
 
 def _commit(inventory: Inventory, msg: str) -> None:
-    """Persist changes, show feedback, and trigger a Streamlit rerun."""
+    # Persist changes, show feedback, and trigger a Streamlit rerun
     backup = save_and_backup(inventory)
     st.success(msg)
     st.caption(f"💾 Backup saved: `{backup}`")
